@@ -580,7 +580,7 @@ func TestToolHandlers_ConcurrentCalls(t *testing.T) {
 	// Concurrent get_callers
 	for i := 0; i < 10; i++ {
 		go func() {
-			_, err = reg.Execute(ctx, "get_callers", map[string]any{
+			_, err := reg.Execute(ctx, "get_callers", map[string]any{
 				"function_id": "pkg.Bar",
 				"transitive":  false,
 			})
@@ -591,7 +591,7 @@ func TestToolHandlers_ConcurrentCalls(t *testing.T) {
 	// Concurrent get_callees
 	for i := 0; i < 10; i++ {
 		go func() {
-			_, err = reg.Execute(ctx, "get_callees", map[string]any{
+			_, err := reg.Execute(ctx, "get_callees", map[string]any{
 				"function_id": "pkg.Foo",
 				"transitive":  false,
 			})
