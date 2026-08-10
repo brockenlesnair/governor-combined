@@ -1,0 +1,74 @@
+features:
+  search:
+    enabled: true
+    max_results: 50
+    fuzzy_threshold: 0.3
+  untested:
+    enabled: true
+    include_exported: true
+    min_priority: 0.3
+  deadcode:
+    enabled: true
+    exclude_exported: true
+    min_confidence: 0.5
+  webhook:
+    enabled: true
+    timeout: 30s
+    max_retries: 3
+  httpproxy:
+    enabled: true
+    target: ""
+    timeout: 30s
+  memory:
+    enabled: true
+    storage_path: "./data/memory.db"
+  safety:
+    enabled: true
+    audit_path: "./data/audit.log"
+  callgraph:
+    enabled: true
+  persist:
+    enabled: true
+    db_path: "./data/governor.db"
+  gateway:
+    tool_dispatch_use_registry: true
+    listen: ":8080"
+  metrics:
+    enabled: true
+    path: "/metrics"
+  docgov:
+    enabled: true
+    project_root: "."
+    enable_watcher: true
+    watcher_interval: "30s"
+  rigour:
+    enabled: true
+    dlp_enabled: true
+    entropy_threshold: 5.5
+    check_interval: 30s
+    brain:
+      hard_threshold: 0.9
+      decay_rate: 0.1
+      prune_threshold: 0.1
+  sarif:
+    enabled: true
+    output_path: "./data/sarif"
+    dedup_window: 24h
+  adr:
+    enabled: true
+    adr_root: "./docs/adr"
+    repo_root: "."
+    github:
+      webhook_secret: ""
+      token: ""
+    preview:
+      comment_tag: "<!-- governor-adr-preview -->"
+  hangar:
+    enabled: false
+    endpoint: ""
+    token: ""
+    timeout: 30s
+  repo:
+    enabled: false
+    butler_path: ""
+    timeout: 30s

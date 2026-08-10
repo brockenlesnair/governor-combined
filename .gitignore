@@ -1,0 +1,40 @@
+# Binaries
+governor
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Go build output
+*.out
+*.o
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Runtime state
+data/
+.governor/
+
+# Audit logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# E2E test artifacts
+/tmp/

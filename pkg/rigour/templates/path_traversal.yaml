@@ -1,0 +1,29 @@
+name: path_traversal
+description: "Detects and fixes path traversal vulnerabilities by validating and sanitizing file path inputs"
+severity: critical
+category: security
+ast_grep_pattern: |
+  rule:
+    pattern: |
+      os.Open($PATH)
+    language: go
+  fix:
+    action: replace
+    replacement: |
+      filepath.Clean($PATH)
+      os.Open($PATH)
+instructions:
+  - "Use filepath.Clean to normalize all file paths before use"
+  - "Validate that resolved paths stay within the intended base directory"
+  - "Reject paths containing '..' segments when base directory is required"
+  - "Use filepath.Rel to verify the cleaned path is relative to the allowed root"
+  - "Add a path whitelist or prefix check for sensitive operations"
+verification:
+  - "go vet ./..."
+  - "grep -rn 'os.Open\\|os.ReadFile\\|os.Create\\|ioutil.ReadFile' --include='*.go' | grep -v '_test.go' | grep -v 'filepath.Clean' | wc -l | xargs test 0 -eq"
+constraints:
+  do_not_touch:
+    - "vendor/"
+    - "go.sum"
+  max_files: 10
+  paradigm: "none"

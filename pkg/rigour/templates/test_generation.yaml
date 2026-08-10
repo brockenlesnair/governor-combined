@@ -1,0 +1,20 @@
+name: test_generation
+description: "Generates table-driven test scaffolds for functions lacking test coverage"
+severity: info
+category: testing
+ast_grep_pattern: ""
+instructions:
+  - "Identify exported functions without corresponding _test.go coverage"
+  - "Generate table-driven test function scaffold with t.Run subtests"
+  - "Include test cases for: happy path, nil/empty input, boundary values, error conditions"
+  - "Use testify/require or stdlib testing patterns consistently"
+  - "Add test file next to source file following Go convention (foo_test.go)"
+verification:
+  - "go test ./... -count=1 -short"
+  - "go vet ./..."
+constraints:
+  do_not_touch:
+    - "vendor/"
+    - "go.sum"
+  max_files: 20
+  paradigm: "none"

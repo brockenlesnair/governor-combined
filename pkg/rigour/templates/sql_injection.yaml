@@ -1,0 +1,27 @@
+name: sql_injection
+description: "Detects and fixes SQL injection vulnerabilities by replacing string concatenation with parameterized queries"
+severity: critical
+category: security
+ast_grep_pattern: |
+  rule:
+    pattern: |
+      $QUERY + $INPUT
+    language: go
+  fix:
+    action: replace
+    replacement: |
+      $DB.QueryContext(ctx, $QUERY, $INPUT)
+instructions:
+  - "Replace string concatenation in SQL queries with parameterized queries"
+  - "Use db.QueryContext or db.ExecContext with placeholder arguments"
+  - "Validate and sanitize all user inputs before passing to query"
+  - "Add input length limits to prevent buffer overflow via SQL"
+verification:
+  - "go vet ./..."
+  - "grep -rn 'fmt.Sprintf.*SELECT\\|fmt.Sprintf.*INSERT\\|fmt.Sprintf.*UPDATE\\|fmt.Sprintf.*DELETE' --include='*.go' | grep -v '_test.go' | wc -l | xargs test 0 -eq"
+constraints:
+  do_not_touch:
+    - "vendor/"
+    - "go.sum"
+  max_files: 10
+  paradigm: "none"

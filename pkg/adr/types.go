@@ -1,0 +1,206 @@
+package adr
+
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// WebhookEvent represents a GitHub webhook event.
+type WebhookEvent struct {
+	Action      string         `json:"action"`
+	PullRequest *PullRequest   `json:"pull_request,omitempty"`
+	Repository  *Repository    `json:"repository,omitempty"`
+	Installation *Installation `json:"installation,omitempty"`
+}
+
+// PullRequest represents a GitHub pull request.
+type PullRequest struct {
+	Number      int       `json:"number"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	State       string    `json:"state"`
+	MergeCommit *string   `json:"merge_commit_sha"`
+	Head        *Branch   `json:"head"`
+	Base        *Branch   `json:"base"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// Branch represents a git branch.
+type Branch struct {
+	Ref string `json:"ref"`
+	SHA string `json:"sha"`
+}
+
+// Repository represents a GitHub repository.
+type Repository struct {
+	FullName string `json:"full_name"`
+	CloneURL string `json:"clone_url"`
+}
+
+// Installation represents a GitHub App installation.
+type Installation struct {
+	ID int64 `json:"id"`
+}
+
+// DiffFile represents a changed file in a PR diff.
+type DiffFile struct {
+	Filename    string `json:"filename"`
+	Status      string `json:"status"` // added, removed, modified, renamed
+	Additions   int    `json:"additions"`
+	Deletions   int    `json:"deletions"`
+	Changes     int    `json:"changes"`
+	PreviousFilename string `json:"previous_filename,omitempty"`
+}
+
+// PRDiff represents the full diff of a pull request.
+type PRDiff struct {
+	Files       []DiffFile `json:"files"`
+	TotalAdd    int        `json:"total_add"`
+	TotalDelete int        `json:"total_delete"`
+	TotalFiles  int        `json:"total_files"`
+}
+
+// MutationResult represents the output of an AdrMcp mutation operation.
+type MutationResult struct {
+	Success   bool     `json:"success"`
+	ADRPath   string   `json:"adr_path"`
+	Diff      string   `json:"diff"`
+	Preview   string   `json:"preview"`
+	Message   string   `json:"message"`
+	Warnings  []string `json:"warnings,omitempty"`
+	Errors    []string `json:"errors,omitempty"`
+	FilePaths []string `json:"file_paths,omitempty"`
+}
+
+// ConflictPair represents a pair of conflicting ADRs.
+type ConflictPair struct {
+	ADR1        string   `json:"adr1"`
+	ADR2        string   `json:"adr2"`
+	Similarity  float64  `json:"similarity"`
+	OverlapPaths []string `json:"overlap_paths"`
+}
+
+// StaleADR represents an ADR with potentially stale code references.
+type StaleADR struct {
+	ADRPath    string    `json:"adr_path"`
+	CodeRefs   []CodeRef `json:"code_refs"`
+	LastVerified time.Time `json:"last_verified"`
+	Reason     string    `json:"reason"`
+}
+
+// CodeRef represents a reference from an ADR to a code file.
+type CodeRef struct {
+	Path     string `json:"path"`
+	Line     int    `json:"line,omitempty"`
+	Exists   bool   `json:"exists"`
+	CurrentPath string `json:"current_path,omitempty"` // For moved files
+}
+
+// SlashCommand represents a parsed /adr slash command.
+type SlashCommand struct {
+	Action  string   `json:"action"`  // accept, reject, update
+	Args    []string `json:"args"`
+	Raw     string   `json:"raw"`
+}
+
+// PRComment represents a GitHub PR comment.
+type PRComment struct {
+	ID   int    `json:"id"`
+	Body string `json:"body"`
+	HTML string `json:"html_url"`
+}
+
+// ADRDocument represents an Architecture Decision Record.
+type ADRDocument struct {
+	Title   string `json:"title"`
+	Status  string `json:"status"` // proposed, accepted, deprecated, superseded
+	Content string `json:"content"`
+	Path    string `json:"path"`
+}
+
+// ServerProject maps a project path to its AdrMcp server configuration.
+type ServerProject struct {
+	ProjectID string `json:"project_id"`
+	AdrRoot   string `json:"adr_root"`
+	RepoRoot  string `json:"repo_root"`
+	ServerID  string `json:"server_id,omitempty"`
+}
+
+// ServerStatus represents the health status of an AdrMcp server.
+type ServerStatus struct {
+	ProjectID   string    `json:"project_id"`
+	Healthy     bool      `json:"healthy"`
+	RestartCount int      `json:"restart_count"`
+	LastHealth  time.Time `json:"last_health"`
+	Error       string    `json:"error,omitempty"`
+}
+
+// PreviewComment is the structured content posted as a PR comment.
+type PreviewComment struct {
+	ADRTitle    string `json:"adr_title"`
+	ADRStatus   string `json:"adr_status"`
+	PreviewDiff string `json:"preview_diff"`
+	FilePaths   []string `json:"file_paths"`
+	AcceptURL   string `json:"accept_url"`
+	RejectURL   string `json:"reject_url"`
+	UpdateURL   string `json:"update_url"`
+}
+
+// String formats the PreviewComment as a PR comment body.
+func (p *PreviewComment) String() string {
+	return fmt.Sprintf(`## ADR Proposal: %s
+
+**Status:** %s
+
+### Proposed Changes
+
+`+"```diff\n%s\n```"+`
+
+**Affected files:** %s
+
+---
+
+%s
+
+*Generated by AdrMcp Pipeline*`,
+		p.ADRTitle,
+		p.ADRStatus,
+		p.PreviewDiff,
+		formatFilePaths(p.FilePaths),
+		formatActions(p),
+	)
+}
+
+func formatFilePaths(paths []string) string {
+	if len(paths) == 0 {
+		return "none"
+	}
+	s := ""
+	for i, path := range paths {
+		if i > 0 {
+			s += ", "
+		}
+		s += "`" + path + "`"
+	}
+	return s
+}
+
+func formatActions(p *PreviewComment) string {
+	return fmt.Sprintf(`**Accept:** /adr accept
+**Reject:** /adr reject [reason]
+**Update:** /adr update [changes]`)
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for PullRequest.
+// It handles the merge_commit_sha field which can be null or missing.
+func (pr *PullRequest) UnmarshalJSON(data []byte) error {
+	type Alias PullRequest
+	a := &Alias{}
+	if err := json.Unmarshal(data, a); err != nil {
+		return err
+	}
+	*pr = PullRequest(*a)
+	return nil
+}

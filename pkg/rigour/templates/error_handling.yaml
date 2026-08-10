@@ -1,0 +1,31 @@
+name: error_handling
+description: "Enforces proper error handling patterns: no ignored errors, consistent wrapping, and structured logging"
+severity: warning
+category: correctness
+ast_grep_pattern: |
+  rule:
+    pattern: |
+      $$$CALL, _ := $$$
+    language: go
+  fix:
+    action: replace
+    replacement: |
+      $$$CALL, err := $$$
+      if err != nil {
+        return fmt.Errorf("context: %w", err)
+      }
+instructions:
+  - "Never ignore errors with _ assignment; always handle or propagate"
+  - "Wrap errors with fmt.Errorf and %w for proper error chain"
+  - "Return sentinel errors for expected failure modes"
+  - "Use structured logging for error context (slog.Error, logger.Error)"
+  - "Ensure resources are cleaned up with defer on error paths"
+verification:
+  - "go vet ./..."
+  - "grep -rn ', _ :=' --include='*.go' | grep -v '_test.go' | grep -v 'defer\\|Close\\|Unlock' | wc -l | xargs test 0 -eq"
+constraints:
+  do_not_touch:
+    - "vendor/"
+    - "go.sum"
+  max_files: 10
+  paradigm: "none"
