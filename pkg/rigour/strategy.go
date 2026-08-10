@@ -55,6 +55,9 @@ type FixApplier struct {
 
 	// Path matcher for constraint enforcement
 	protectedPaths  []string
+
+	// Base directory for file operations (defaults to current directory)
+	baseDir string
 }
 
 // NewFixApplier creates a FixApplier with standard ast-grep patterns.
@@ -62,12 +65,19 @@ func NewFixApplier(logger *slog.Logger) *FixApplier {
 	fa := &FixApplier{
 		logger:         logger.With("component", "fix_applier"),
 		astGrepPatterns: make(map[string]string),
+		baseDir:        ".",
 	}
 
 	// Register known patterns for ast-grep transformation
 	fa.registerKnownPatterns()
 
 	return fa
+}
+
+// SetBaseDir sets the base directory for file operations.
+// Use this in tests to isolate file writes to a temp directory.
+func (fa *FixApplier) SetBaseDir(dir string) {
+	fa.baseDir = dir
 }
 
 // registerKnownPatterns maps gate names to ast-grep patterns.
@@ -344,28 +354,31 @@ func (fa *FixApplier) applyCreateFile(ctx context.Context, fp *FixPacket) (*FixR
 		// For documentation gates, the file path indicates what to create
 		path := file.Path
 
+		// Resolve path relative to baseDir
+		fullPath := filepath.Join(fa.baseDir, path)
+
 		// Check if it's a directory creation
 		isDir := strings.HasSuffix(path, "/")
 
 		if isDir {
-			if err := os.MkdirAll(path, 0755); err != nil {
-				fa.logger.Error("failed to create directory", "path", path, "err", err)
-				result.Error = fmt.Sprintf("failed to create directory %s: %v", path, err)
+			if err := os.MkdirAll(fullPath, 0755); err != nil {
+				fa.logger.Error("failed to create directory", "path", fullPath, "err", err)
+				result.Error = fmt.Sprintf("failed to create directory %s: %v", fullPath, err)
 				return result, nil
 			}
-			fa.logger.Info("created directory", "path", path)
+			fa.logger.Info("created directory", "path", fullPath)
 		} else {
 			// Create parent directories
-			dir := filepath.Dir(path)
+			dir := filepath.Dir(fullPath)
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				fa.logger.Error("failed to create parent dirs", "path", dir, "err", err)
-				result.Error = fmt.Sprintf("failed to create parent dirs for %s: %v", path, err)
+				result.Error = fmt.Sprintf("failed to create parent dirs for %s: %v", fullPath, err)
 				return result, nil
 			}
 
 			// Check if file already exists
-			if _, err := os.Stat(path); err == nil {
-				fa.logger.Info("file already exists, skipping", "path", path)
+			if _, err := os.Stat(fullPath); err == nil {
+				fa.logger.Info("file already exists, skipping", "path", fullPath)
 				continue
 			}
 
@@ -377,12 +390,12 @@ func (fa *FixApplier) applyCreateFile(ctx context.Context, fp *FixPacket) (*FixR
 			// Substitute variables
 			content = strings.ReplaceAll(content, "$(date +%Y)", time.Now().Format("2006"))
 
-			if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-				fa.logger.Error("failed to write file", "path", path, "err", err)
-				result.Error = fmt.Sprintf("failed to write %s: %v", path, err)
+			if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+				fa.logger.Error("failed to write file", "path", fullPath, "err", err)
+				result.Error = fmt.Sprintf("failed to write %s: %v", fullPath, err)
 				return result, nil
 			}
-			fa.logger.Info("created file", "path", path)
+			fa.logger.Info("created file", "path", fullPath)
 		}
 
 		result.FilesChanged = append(result.FilesChanged, path)

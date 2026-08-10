@@ -1,5 +1,5 @@
 # Binaries
-governor
+/governor
 *.exe
 *.dll
 *.so

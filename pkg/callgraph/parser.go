@@ -1,3 +1,8 @@
+// Package callgraph builds and analyzes function-level call graphs for Go codebases.
+//
+// It uses go/ast for native Go parsing and provides a tree-sitter based parser
+// for non-Go languages (Python, Rust, TypeScript, JavaScript). The graph supports
+// fan-in/fan-out metrics, cycle detection, and root/leaf identification.
 package callgraph
 
 import (
@@ -18,12 +23,15 @@ type PackageInfo struct {
 	Imports []string
 }
 
+// GoParser parses Go packages and extracts call graph nodes and edges.
+// It caches syntax and type information for incremental parsing.
 type GoParser struct {
 	fset        *token.FileSet
 	syntaxCache map[string][]*ast.File
 	typesCache  map[string]*packages.Package
 }
 
+// NewGoParser creates a new Go parser with fresh caches.
 func NewGoParser() *GoParser {
 	return &GoParser{
 		fset:        token.NewFileSet(),
@@ -32,10 +40,13 @@ func NewGoParser() *GoParser {
 	}
 }
 
+// NewParser is an alias for NewGoParser for interface compatibility.
 func NewParser() *GoParser {
 	return NewGoParser()
 }
 
+// ParsePackages loads all Go packages under rootPath and returns their metadata.
+// It populates internal caches for subsequent ParseFile calls.
 func (p *GoParser) ParsePackages(ctx context.Context, rootPath string) ([]*PackageInfo, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
@@ -78,6 +89,8 @@ func (p *GoParser) ParsePackages(ctx context.Context, rootPath string) ([]*Packa
 	return result, nil
 }
 
+// ParseFile parses a single Go file and extracts its function/method nodes and call edges.
+// pkgInfo must come from a prior ParsePackages call for cache lookup.
 func (p *GoParser) ParseFile(ctx context.Context, filePath string, pkgInfo *PackageInfo) ([]*Node, []*Edge, error) {
 	var fileAst *ast.File
 

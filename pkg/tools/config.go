@@ -1,3 +1,6 @@
+// Package tools implements the MCP (Model Context Protocol) tools server
+// for Governor. It exposes governance analysis functions as discoverable
+// tools that AI agents can invoke via JSON-RPC.
 package tools
 
 import (

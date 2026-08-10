@@ -1,3 +1,8 @@
+// Package deadcode detects unused functions, methods, and types in Go codebases.
+//
+// It performs reachability analysis starting from entry points (main, init, exported
+// functions) and flags unreachable code with confidence scores. Supports filtering
+// by exported visibility, test files, and build tags.
 package deadcode
 
 // Config holds configuration for dead code detection.

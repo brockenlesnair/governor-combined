@@ -1,3 +1,8 @@
+// Package search provides semantic code search across call graphs.
+//
+// It combines fuzzy string matching with graph-aware ranking to find relevant
+// functions, types, and patterns. Results are scored by textual similarity,
+// structural importance (fan-in/fan-out), and recency.
 package search
 
 import (
@@ -11,6 +16,8 @@ import (
 	"github.com/brockenlesnair/governor-combined/pkg/callgraph"
 )
 
+// Searcher provides semantic code search over a call graph.
+// It combines fuzzy matching with graph-aware ranking (fan-in/fan-out, recency).
 type Searcher struct {
 	cg          *callgraph.Graph
 	graphSearch *GraphSearch
@@ -19,6 +26,7 @@ type Searcher struct {
 	logger      *slog.Logger
 }
 
+// NewSearcher creates a searcher from a call graph.
 func NewSearcher(cg *callgraph.Graph, logger *slog.Logger) *Searcher {
 	names := make([]string, 0, len(cg.Nodes)*2)
 	for _, ref := range cg.Nodes {
@@ -36,6 +44,7 @@ func NewSearcher(cg *callgraph.Graph, logger *slog.Logger) *Searcher {
 	}
 }
 
+// Query represents a search query with optional filters.
 type Query struct {
 	Pattern    string     `json:"pattern"`
 	Kind       SearchKind `json:"kind"`

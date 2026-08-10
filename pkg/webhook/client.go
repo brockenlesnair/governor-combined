@@ -1,3 +1,8 @@
+// Package webhook manages inbound webhook delivery and processing.
+//
+// It receives HTTP webhooks, validates signatures, deduplicates events,
+// and routes them to appropriate handlers with configurable retry policies
+// and dead-letter queues for failed deliveries.
 package webhook
 
 import (

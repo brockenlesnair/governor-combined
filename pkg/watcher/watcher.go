@@ -1,3 +1,8 @@
+// Package watcher monitors filesystem changes and notifies subscribers.
+//
+// It polls directories at configurable intervals, detects file modifications,
+// additions, and deletions, and broadcasts events to registered handlers.
+// Supports debouncing and filtering by file extension.
 package watcher
 
 import (

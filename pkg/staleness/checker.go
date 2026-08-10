@@ -1,3 +1,7 @@
+// Package staleness detects outdated documentation and code artifacts.
+//
+// It checks file modification times, git history, and dependency freshness
+// to identify stale content that needs review or removal.
 package staleness
 
 import (

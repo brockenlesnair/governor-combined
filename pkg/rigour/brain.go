@@ -1,3 +1,8 @@
+// Package rigour implements code quality analysis using Hebbian learning patterns.
+//
+// It tracks patterns across analysis runs, strengthening frequently-seen patterns
+// and decaying stale ones. The supervisor orchestrates multiple quality checks
+// (complexity, duplication, dead code) and produces a unified quality score.
 package rigour
 
 import (

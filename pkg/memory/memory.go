@@ -1,3 +1,8 @@
+// Package memory implements a persistent knowledge graph with semantic search.
+//
+// It stores entities (concepts, decisions, patterns) and relationships between
+// them in SQLite, with vector embeddings for similarity search. Includes automatic
+// decay of stale knowledge and configurable retention policies.
 package memory
 
 import (

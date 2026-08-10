@@ -1,3 +1,7 @@
+// Package config provides the Governor V2.0 configuration types and YAML loading.
+//
+// Configuration is organized by feature (search, untested, deadcode, webhook, etc.)
+// and supports environment variable overrides for sensitive values like API keys.
 package config
 
 import (

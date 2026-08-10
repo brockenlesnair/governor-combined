@@ -1,3 +1,6 @@
+// Package persist handles serialization and storage of call graphs and related
+// data structures. It supports JSON and SQLite backends for caching computed
+// graphs across analysis runs.
 package persist
 
 // Node represents a node in the call graph (simplified for persistence).

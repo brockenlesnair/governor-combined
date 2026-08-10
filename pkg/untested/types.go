@@ -1,3 +1,8 @@
+// Package untested detects functions and methods lacking test coverage.
+//
+// It analyzes package structure to find exported and unexported functions
+// without corresponding test files, prioritizing by risk factors like
+// complexity and public API surface.
 package untested
 
 // Config controls the behavior of the untested detector.

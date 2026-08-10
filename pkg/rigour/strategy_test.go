@@ -10,6 +10,13 @@ func testFixApplier() *FixApplier {
 	return NewFixApplier(slog.Default())
 }
 
+func testFixApplierWithTempDir(t *testing.T) *FixApplier {
+	tmpDir := t.TempDir()
+	fa := NewFixApplier(slog.Default())
+	fa.SetBaseDir(tmpDir)
+	return fa
+}
+
 func TestDetermineStrategy_DocGate(t *testing.T) {
 	fa := testFixApplier()
 
@@ -98,7 +105,7 @@ func TestDetermineStrategy_InstructionMatch(t *testing.T) {
 }
 
 func TestEnforceConstraints_DoNotTouch(t *testing.T) {
-	fa := testFixApplier()
+	fa := testFixApplierWithTempDir(t)
 
 	fp := &FixPacket{
 		GateName: "missing_readme",
@@ -115,7 +122,7 @@ func TestEnforceConstraints_DoNotTouch(t *testing.T) {
 }
 
 func TestEnforceConstraints_MaxFiles(t *testing.T) {
-	fa := testFixApplier()
+	fa := testFixApplierWithTempDir(t)
 
 	fp := &FixPacket{
 		GateName: "missing_readme",
@@ -136,7 +143,7 @@ func TestEnforceConstraints_MaxFiles(t *testing.T) {
 }
 
 func TestEnforceConstraints_MaxFilesNotExceeded(t *testing.T) {
-	fa := testFixApplier()
+	fa := testFixApplierWithTempDir(t)
 
 	fp := &FixPacket{
 		GateName: "missing_readme",

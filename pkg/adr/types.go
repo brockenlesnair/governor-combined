@@ -1,3 +1,6 @@
+// Package adr implements Architecture Decision Record (ADR) tracking and lifecycle
+// management. It processes GitHub webhook events (pull request opened, merged, etc.)
+// to automatically capture architectural decisions from code changes.
 package adr
 
 import (

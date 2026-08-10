@@ -1,3 +1,8 @@
+// Package safety performs security and safety analysis on codebases.
+//
+// It detects hardcoded secrets, unsafe patterns, and compliance violations,
+// producing findings with severity levels (low, medium, high, critical) and
+// confidence scores for prioritized remediation.
 package safety
 
 import (

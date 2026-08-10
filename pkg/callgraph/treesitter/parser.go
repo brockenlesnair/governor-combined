@@ -1,3 +1,7 @@
+// Package treesitter implements callgraph.SourceParser using tree-sitter grammars.
+//
+// It supports Python, Rust, TypeScript, and JavaScript via grammar-specific
+// query patterns. Thread-safe: parser instances are pooled via sync.Pool.
 package treesitter
 
 import (

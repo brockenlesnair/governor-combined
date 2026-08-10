@@ -1,3 +1,8 @@
+// Package gateway provides a WebSocket-based gateway for the Governor MCP server.
+//
+// It bridges HTTP and WebSocket transports, manages client connections,
+// routes tool invocations to the MCP registry, and handles session lifecycle
+// with configurable timeouts and authentication.
 package gateway
 
 import (

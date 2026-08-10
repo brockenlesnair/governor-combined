@@ -1,3 +1,6 @@
+// Package collab provides multi-agent collaboration primitives for concurrent
+// file editing. It implements distributed file locking with conflict detection,
+// shadow document management, and merge strategies (last-write-wins, manual, auto-merge).
 package collab
 
 import "time"

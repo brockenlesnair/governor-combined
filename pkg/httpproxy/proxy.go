@@ -1,3 +1,7 @@
+// Package httpproxy provides a reverse proxy with rate limiting, circuit breaking,
+// and request/response logging for the Governor MCP tools server.
+//
+// It supports configurable timeouts, retry policies, and secret redaction in logs.
 package httpproxy
 
 import (

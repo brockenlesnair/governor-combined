@@ -1,3 +1,8 @@
+// Package docgov manages governance documentation lifecycle and compliance.
+//
+// It tracks document types (ADRs, API specs, runbooks, threat models, etc.)
+// through their lifecycle states (draft, proposed, accepted, deprecated) and
+// enforces freshness policies with automated staleness detection.
 package docgov
 
 import (

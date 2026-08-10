@@ -1,3 +1,8 @@
+// Package mcp implements the Model Context Protocol (MCP) tool registry.
+//
+// It provides a registry for discoverable tools that AI agents can invoke
+// via JSON-RPC. Tools are registered with schemas and handlers, and the
+// registry supports parallel execution and graceful shutdown.
 package mcp
 
 import (
