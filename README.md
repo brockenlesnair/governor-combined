@@ -145,13 +145,16 @@ To exercise a real tool call:
 |------|---------|-------------|
 | `--config` | `governor.yaml` | Path to config file |
 | `--stdio` | `false` | Run MCP server over stdio |
-| `--full-mode` | `false` | Enable live watchers and periodic graph rebuilds |
+| `--mode` | `light` | Runtime mode: `light`, `balanced`, or `full` |
+| `--full-mode` | `false` | Deprecated alias for `--mode=full` |
 | `--port` | `0` | HTTP server port (overrides config) |
 | `--project-root` | `""` | Project root directory (overrides config) |
 
 ## Configuration
 
-Governor runs in `light` mode by default to avoid background rebuild churn. Set `features.mode: full` or pass `--full-mode` when you need live file watchers and periodic graph rebuilds.
+Governor runs in `light` mode by default to avoid background rebuild churn. Use `features.mode: balanced` for a one-time graph warmup, or `features.mode: full` / `--full-mode` when you need live file watchers and periodic graph rebuilds.
+
+See [Runtime Modes](docs/runtime-modes.md) for the resource table and hardware recommendations.
 
 Governor is configured via `governor.yaml`:
 

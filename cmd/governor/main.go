@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -105,7 +104,8 @@ func init() {
 func main() {
 	configPath := flag.String("config", "governor.yaml", "path to governor config file")
 	stdioMode := flag.Bool("stdio", false, "run MCP server over stdio")
-	fullModeFlag := flag.Bool("full-mode", false, "enable full background maintenance mode")
+	modeFlag := flag.String("mode", "", "runtime mode: light, balanced, or full")
+	fullModeFlag := flag.Bool("full-mode", false, "deprecated alias for --mode=full")
 	port := flag.Int("port", 0, "HTTP server port (overrides config)")
 	projectRoot := flag.String("project-root", "", "project root directory (overrides config)")
 	flag.Parse()
@@ -123,14 +123,17 @@ func main() {
 	if *projectRoot != "" {
 		cfg.Features.DocGov.ProjectRoot = *projectRoot
 	}
+	if *modeFlag != "" {
+		cfg.Features.Mode = *modeFlag
+	}
 	if *fullModeFlag {
 		cfg.Features.Mode = "full"
 	}
-	fullMode := cfg.Features.FullModeEnabled()
+	profile := cfg.Features.RuntimeProfile()
 
 	// Print banner and enabled features
 	fmt.Fprint(os.Stderr, banner)
-	printEnabledFeaturesTo(os.Stderr, cfg)
+	printEnabledFeaturesTo(os.Stderr, cfg, profile)
 
 	// Create tools config
 	toolsCfg := &tools.ToolsConfig{
@@ -196,8 +199,18 @@ func main() {
 	var docTools *docgov.DocGovTools
 
 	ctx := context.Background()
-	if fullMode {
+	if profile.EnableRebuildLoop {
 		gl.StartRebuildLoop(ctx)
+	}
+	if profile.BuildGraphOnStartup {
+		go func() {
+			g, err := gl.BuildGraph(ctx)
+			if err != nil {
+				logger.Warn("Initial graph build failed", "error", err)
+				return
+			}
+			logger.Info("Initial graph build completed", "nodes", len(g.Nodes), "edges", len(g.Edges), "mode", profile.Mode.String())
+		}()
 	}
 
 	// Initialize document governance
@@ -231,7 +244,7 @@ func main() {
 		}
 
 		// Start docgov watcher only in full mode.
-		if fullMode {
+		if profile.EnableDocGovWatcher {
 			interval, _ := time.ParseDuration(cfg.Features.DocGov.WatcherInterval)
 			if interval == 0 {
 				interval = 30 * time.Second
@@ -271,7 +284,7 @@ func main() {
 	}
 
 	// Start file watcher only in full mode.
-	if fullMode {
+	if profile.EnableGraphWatcher {
 		watcherCfg := watcher.Config{
 			Paths:        []string{toolsCfg.ProjectRoot},
 			PollInterval: 2 * time.Second,
@@ -301,27 +314,14 @@ func main() {
 
 	// Start server
 	if *stdioMode {
-		runStdioServer(gw, gl, fullMode)
+		runStdioServer(gw, gl)
 	} else {
 		runHTTPServer(gw, cfg, gl)
 	}
 }
 
-func runStdioServer(gw *gateway.Gateway, gl *tools.GraphLifecycle, fullMode bool) {
+func runStdioServer(gw *gateway.Gateway, gl *tools.GraphLifecycle) {
 	fmt.Fprintln(os.Stderr, "Starting MCP server over stdio...")
-
-	// Build graph in the background only in full mode.
-	if fullMode {
-		go func() {
-			ctx := context.Background()
-			g, err := gl.BuildGraph(ctx)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Initial graph build failed: %v\n", err)
-			} else {
-				fmt.Fprintf(os.Stderr, "Graph built: %d nodes, %d edges\n", len(g.Nodes), len(g.Edges))
-			}
-		}()
-	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
@@ -549,9 +549,9 @@ func parsePort(listen string) int {
 	return 8080
 }
 
-func printEnabledFeaturesTo(w io.Writer, cfg *config.GovernorConfig) {
+func printEnabledFeaturesTo(w io.Writer, cfg *config.GovernorConfig, profile config.RuntimeProfile) {
 	fmt.Fprintln(w, "Enabled features:")
-	fmt.Fprintf(w, "  - mode: %s\n", modeOrDefault(cfg.Features.Mode))
+	fmt.Fprintf(w, "  - mode: %s (%s)\n", profile.Mode, profile.Description)
 
 	features := []struct {
 		name    string
@@ -584,11 +584,4 @@ func printEnabledFeaturesTo(w io.Writer, cfg *config.GovernorConfig) {
 		fmt.Fprintf(w, "  %s %s\n", status, f.name)
 	}
 	fmt.Fprintln(w)
-}
-
-func modeOrDefault(mode string) string {
-	if strings.EqualFold(strings.TrimSpace(mode), "full") {
-		return "full"
-	}
-	return "light"
 }

@@ -16,6 +16,9 @@ func TestDefaultConfigReturnsNonNilWithAllFeaturesEnabled(t *testing.T) {
 	if f.Mode != "light" {
 		t.Errorf("features.mode = %q, want light", f.Mode)
 	}
+	if got := f.RuntimeMode(); got != RuntimeModeLight {
+		t.Errorf("RuntimeMode() = %q, want %q", got, RuntimeModeLight)
+	}
 
 	tests := []struct {
 		name    string
@@ -103,6 +106,12 @@ features:
 	if cfg.Features.Mode != "full" {
 		t.Errorf("features.mode = %q, want full", cfg.Features.Mode)
 	}
+	if got := cfg.Features.RuntimeMode(); got != RuntimeModeFull {
+		t.Errorf("RuntimeMode() = %q, want %q", got, RuntimeModeFull)
+	}
+	if prof := cfg.Features.RuntimeProfile(); !prof.EnableGraphWatcher || !prof.EnableDocGovWatcher || !prof.EnableRebuildLoop {
+		t.Errorf("full profile should enable all background maintenance, got %#v", prof)
+	}
 	if cfg.Features.Search.Enabled {
 		t.Error("search should be disabled")
 	}
@@ -156,6 +165,9 @@ features:
 	if cfg.Features.Mode != "light" {
 		t.Errorf("features.mode = %q, want light (default)", cfg.Features.Mode)
 	}
+	if got := cfg.Features.RuntimeProfile(); got.Mode != RuntimeModeLight {
+		t.Errorf("RuntimeProfile().Mode = %q, want %q", got.Mode, RuntimeModeLight)
+	}
 	// Not overridden — should use defaults
 	if !cfg.Features.Untested.Enabled {
 		t.Error("untested.enabled should default to true")
@@ -183,5 +195,29 @@ features:
 	}
 	if cfg.Features.Search.FuzzyThreshold != 0.3 {
 		t.Errorf("search.fuzzy_threshold = %f, want 0.3 (default)", cfg.Features.Search.FuzzyThreshold)
+	}
+}
+
+func TestRuntimeProfileBalanced(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Features.Mode = "balanced"
+
+	prof := cfg.Features.RuntimeProfile()
+	if prof.Mode != RuntimeModeBalanced {
+		t.Fatalf("RuntimeProfile().Mode = %q, want %q", prof.Mode, RuntimeModeBalanced)
+	}
+	if !prof.BuildGraphOnStartup {
+		t.Error("balanced mode should warm the graph on startup")
+	}
+	if prof.EnableGraphWatcher || prof.EnableDocGovWatcher || prof.EnableRebuildLoop {
+		t.Errorf("balanced mode should avoid continuous background work, got %#v", prof)
+	}
+}
+
+func TestRuntimeModeInvalidFallsBackToLight(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Features.Mode = "unknown"
+	if got := cfg.Features.RuntimeMode(); got != RuntimeModeLight {
+		t.Errorf("RuntimeMode() = %q, want %q", got, RuntimeModeLight)
 	}
 }

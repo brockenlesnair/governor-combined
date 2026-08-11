@@ -18,6 +18,43 @@ type GovernorConfig struct {
 	Features FeaturesConfig `yaml:"features"`
 }
 
+// RuntimeMode controls the amount of background work Governor performs.
+type RuntimeMode string
+
+const (
+	// RuntimeModeLight favors low resource usage and on-demand work.
+	RuntimeModeLight RuntimeMode = "light"
+	// RuntimeModeBalanced favors responsiveness without continuous watchers.
+	RuntimeModeBalanced RuntimeMode = "balanced"
+	// RuntimeModeFull enables continuous background maintenance.
+	RuntimeModeFull RuntimeMode = "full"
+)
+
+// String returns the normalized string form of the runtime mode.
+func (m RuntimeMode) String() string {
+	return string(m)
+}
+
+// IsValid reports whether the mode is one of the supported runtime modes.
+func (m RuntimeMode) IsValid() bool {
+	switch m {
+	case RuntimeModeLight, RuntimeModeBalanced, RuntimeModeFull:
+		return true
+	default:
+		return false
+	}
+}
+
+// RuntimeProfile describes the resource/behavior profile for a runtime mode.
+type RuntimeProfile struct {
+	Mode                RuntimeMode
+	Description         string
+	BuildGraphOnStartup bool
+	EnableGraphWatcher  bool
+	EnableDocGovWatcher bool
+	EnableRebuildLoop   bool
+}
+
 // FeaturesConfig contains per-feature configuration.
 type FeaturesConfig struct {
 	Mode      string          `yaml:"mode"`
@@ -178,10 +215,52 @@ func DefaultConfig() *GovernorConfig {
 	}
 }
 
+// RuntimeMode returns the normalized runtime mode, defaulting to light.
+func (f FeaturesConfig) RuntimeMode() RuntimeMode {
+	mode := RuntimeMode(strings.ToLower(strings.TrimSpace(f.Mode)))
+	if !mode.IsValid() {
+		return RuntimeModeLight
+	}
+	return mode
+}
+
+// RuntimeProfile returns the behavior profile for the selected runtime mode.
+func (f FeaturesConfig) RuntimeProfile() RuntimeProfile {
+	switch f.RuntimeMode() {
+	case RuntimeModeBalanced:
+		return RuntimeProfile{
+			Mode:                RuntimeModeBalanced,
+			Description:         "moderate startup work with no continuous background watchers",
+			BuildGraphOnStartup: true,
+			EnableGraphWatcher:  false,
+			EnableDocGovWatcher: false,
+			EnableRebuildLoop:   false,
+		}
+	case RuntimeModeFull:
+		return RuntimeProfile{
+			Mode:                RuntimeModeFull,
+			Description:         "continuous background maintenance with live watchers and rebuilds",
+			BuildGraphOnStartup: true,
+			EnableGraphWatcher:  true,
+			EnableDocGovWatcher: true,
+			EnableRebuildLoop:   true,
+		}
+	default:
+		return RuntimeProfile{
+			Mode:                RuntimeModeLight,
+			Description:         "lowest resource mode with on-demand graph work",
+			BuildGraphOnStartup: false,
+			EnableGraphWatcher:  false,
+			EnableDocGovWatcher: false,
+			EnableRebuildLoop:   false,
+		}
+	}
+}
+
 // FullModeEnabled reports whether the server should run in full background
 // maintenance mode with watchers and periodic rebuilds enabled.
 func (f FeaturesConfig) FullModeEnabled() bool {
-	return strings.EqualFold(strings.TrimSpace(f.Mode), "full")
+	return f.RuntimeMode() == RuntimeModeFull
 }
 
 // LoadConfig reads a YAML config file at path and returns a GovernorConfig.
