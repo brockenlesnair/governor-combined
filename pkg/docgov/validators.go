@@ -35,13 +35,18 @@ func (vr *ValidatorRegistry) registerBuiltins() {
 		NewOpenAPIValidator(),
 		NewC4ContextValidator(),
 		NewC4ContainerValidator(),
+		NewC4ComponentValidator(),
 		NewRunbookValidator(),
+		NewRunbookOperationalValidator(),
+		NewDisasterRecoveryValidator(),
 		NewIncidentPlaybookValidator(),
 		NewSTRIDEValidator(),
 		NewDataDictionaryValidator(),
 		NewSLOValidator(),
 		NewPostmortemValidator(),
 		NewChangelogValidator(),
+		NewAPIChangelogValidator(),
+		NewMigrationGuideValidator(),
 		NewReleaseNotesValidator(),
 		NewCodeGuideValidator(),
 	}
@@ -212,10 +217,10 @@ func (v *ADRValidator) Validate(ctx context.Context, content []byte, config Docu
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -238,10 +243,10 @@ func (v *OpenAPIValidator) Validate(ctx context.Context, content []byte, config 
 		errors = append(errors, fmt.Sprintf("invalid YAML/JSON: %v", err))
 		score = 0
 		return ValidationResult{
-			Valid:     false,
-			Errors:    errors,
-			Warnings:  warnings,
-			Score:     score,
+			Valid:    false,
+			Errors:   errors,
+			Warnings: warnings,
+			Score:    score,
 		}
 	}
 
@@ -287,10 +292,10 @@ func (v *OpenAPIValidator) Validate(ctx context.Context, content []byte, config 
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -337,10 +342,10 @@ func (v *C4ContextValidator) Validate(ctx context.Context, content []byte, confi
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -387,10 +392,59 @@ func (v *C4ContainerValidator) Validate(ctx context.Context, content []byte, con
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
+	}
+}
+
+// C4ComponentValidator validates C4 Component diagrams.
+type C4ComponentValidator struct {
+	BaseValidator
+}
+
+func NewC4ComponentValidator() *C4ComponentValidator {
+	return &C4ComponentValidator{BaseValidator{name: "c4_component"}}
+}
+
+func (v *C4ComponentValidator) Validate(ctx context.Context, content []byte, config DocumentTypeConfig) ValidationResult {
+	var errors, warnings []string
+	score := 1.0
+
+	_, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
+		score -= 0.3
+	}
+
+	if len(missing) > 0 {
+		errors = append(errors, fmt.Sprintf("missing required fields: %v", missing))
+		score -= 0.2 * float64(len(missing))
+	}
+
+	body := strings.ToLower(string(content))
+	componentKeywords := []string{"component", "responsibility", "interface", "dependency", "module", "service"}
+	found := 0
+	for _, kw := range componentKeywords {
+		if strings.Contains(body, kw) {
+			found++
+		}
+	}
+	if found < 2 {
+		warnings = append(warnings, "C4 Component should describe component responsibilities, interfaces, and dependencies")
+		score -= 0.15
+	}
+
+	if score < 0 {
+		score = 0
+	}
+
+	return ValidationResult{
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -408,10 +462,6 @@ func (v *RunbookValidator) Validate(ctx context.Context, content []byte, config 
 	score := 1.0
 
 	fm, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
-	if err != nil {
-		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
-		score -= 0.3
-	}
 	if err != nil {
 		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
 		score -= 0.3
@@ -457,10 +507,123 @@ func (v *RunbookValidator) Validate(ctx context.Context, content []byte, config 
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
+	}
+}
+
+// RunbookOperationalValidator validates operational runbooks.
+type RunbookOperationalValidator struct {
+	BaseValidator
+}
+
+func NewRunbookOperationalValidator() *RunbookOperationalValidator {
+	return &RunbookOperationalValidator{BaseValidator{name: "runbook_operational"}}
+}
+
+func (v *RunbookOperationalValidator) Validate(ctx context.Context, content []byte, config DocumentTypeConfig) ValidationResult {
+	var errors, warnings []string
+	score := 1.0
+
+	fm, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
+		score -= 0.3
+	}
+
+	if len(missing) > 0 {
+		errors = append(errors, fmt.Sprintf("missing required fields: %v", missing))
+		score -= 0.2 * float64(len(missing))
+	}
+
+	body := strings.ToLower(string(content))
+	sections := []string{"steps", "monitoring", "checks", "alerts", "rollback", "verification"}
+	found := 0
+	for _, s := range sections {
+		if strings.Contains(body, s) {
+			found++
+		}
+	}
+	if found < 3 {
+		warnings = append(warnings, "operational runbook should include steps, monitoring, checks, verification, and rollback")
+		score -= 0.15
+	}
+
+	if severity, ok := getString(fm, "severity"); ok {
+		valid := []string{"sev-0", "sev-1", "sev-2", "sev-3", "0", "1", "2", "3"}
+		validSeverity := false
+		for _, v := range valid {
+			if strings.EqualFold(severity, v) {
+				validSeverity = true
+				break
+			}
+		}
+		if !validSeverity {
+			warnings = append(warnings, fmt.Sprintf("unusual severity: %s (expected SEV-0 through SEV-3)", severity))
+			score -= 0.1
+		}
+	}
+
+	if score < 0 {
+		score = 0
+	}
+
+	return ValidationResult{
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
+	}
+}
+
+// DisasterRecoveryValidator validates disaster recovery plans.
+type DisasterRecoveryValidator struct {
+	BaseValidator
+}
+
+func NewDisasterRecoveryValidator() *DisasterRecoveryValidator {
+	return &DisasterRecoveryValidator{BaseValidator{name: "disaster_recovery"}}
+}
+
+func (v *DisasterRecoveryValidator) Validate(ctx context.Context, content []byte, config DocumentTypeConfig) ValidationResult {
+	var errors, warnings []string
+	score := 1.0
+
+	_, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
+		score -= 0.3
+	}
+
+	if len(missing) > 0 {
+		errors = append(errors, fmt.Sprintf("missing required fields: %v", missing))
+		score -= 0.2 * float64(len(missing))
+	}
+
+	body := strings.ToLower(string(content))
+	keywords := []string{"recovery", "restore", "backup", "failover", "replication", "rto", "rpo"}
+	found := 0
+	for _, kw := range keywords {
+		if strings.Contains(body, kw) {
+			found++
+		}
+	}
+	if found < 3 {
+		warnings = append(warnings, "disaster recovery plan should cover recovery, restore, backup, failover, RTO, and RPO")
+		score -= 0.15
+	}
+
+	if score < 0 {
+		score = 0
+	}
+
+	return ValidationResult{
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -506,10 +669,10 @@ func (v *IncidentPlaybookValidator) Validate(ctx context.Context, content []byte
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -556,10 +719,10 @@ func (v *STRIDEValidator) Validate(ctx context.Context, content []byte, config D
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -598,10 +761,10 @@ func (v *DataDictionaryValidator) Validate(ctx context.Context, content []byte, 
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -647,10 +810,10 @@ func (v *SLOValidator) Validate(ctx context.Context, content []byte, config Docu
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -696,10 +859,10 @@ func (v *PostmortemValidator) Validate(ctx context.Context, content []byte, conf
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -741,10 +904,113 @@ func (v *ChangelogValidator) Validate(ctx context.Context, content []byte, confi
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
+	}
+}
+
+// APIChangelogValidator validates API changelogs.
+type APIChangelogValidator struct {
+	BaseValidator
+}
+
+func NewAPIChangelogValidator() *APIChangelogValidator {
+	return &APIChangelogValidator{BaseValidator{name: "api_changelog"}}
+}
+
+func (v *APIChangelogValidator) Validate(ctx context.Context, content []byte, config DocumentTypeConfig) ValidationResult {
+	var errors, warnings []string
+	score := 1.0
+
+	_, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
+		score -= 0.3
+	}
+
+	if len(missing) > 0 {
+		errors = append(errors, fmt.Sprintf("missing required fields: %v", missing))
+		score -= 0.2 * float64(len(missing))
+	}
+
+	body := strings.ToLower(string(content))
+	sections := []string{"added", "changed", "deprecated", "removed", "fixed", "breaking"}
+	found := 0
+	for _, s := range sections {
+		if strings.Contains(body, s) {
+			found++
+		}
+	}
+	if found < 2 {
+		warnings = append(warnings, "API changelog should describe added, changed, deprecated, removed, fixed, and breaking changes")
+		score -= 0.15
+	}
+
+	if !strings.Contains(body, "## [") && !strings.Contains(body, "### [") {
+		warnings = append(warnings, "API changelog should include version headers")
+		score -= 0.1
+	}
+
+	if score < 0 {
+		score = 0
+	}
+
+	return ValidationResult{
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
+	}
+}
+
+// MigrationGuideValidator validates migration guides.
+type MigrationGuideValidator struct {
+	BaseValidator
+}
+
+func NewMigrationGuideValidator() *MigrationGuideValidator {
+	return &MigrationGuideValidator{BaseValidator{name: "migration_guide"}}
+}
+
+func (v *MigrationGuideValidator) Validate(ctx context.Context, content []byte, config DocumentTypeConfig) ValidationResult {
+	var errors, warnings []string
+	score := 1.0
+
+	_, _, missing, err := v.checkFrontmatter(content, config.RequiredFields)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("frontmatter parse error: %v", err))
+		score -= 0.3
+	}
+
+	if len(missing) > 0 {
+		errors = append(errors, fmt.Sprintf("missing required fields: %v", missing))
+		score -= 0.2 * float64(len(missing))
+	}
+
+	body := strings.ToLower(string(content))
+	sections := []string{"prerequisite", "upgrade", "migration", "rollback", "compatibility", "verification", "steps"}
+	found := 0
+	for _, s := range sections {
+		if strings.Contains(body, s) {
+			found++
+		}
+	}
+	if found < 3 {
+		warnings = append(warnings, "migration guide should include prerequisites, upgrade steps, verification, rollback, and compatibility notes")
+		score -= 0.15
+	}
+
+	if score < 0 {
+		score = 0
+	}
+
+	return ValidationResult{
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -779,10 +1045,10 @@ func (v *ReleaseNotesValidator) Validate(ctx context.Context, content []byte, co
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }
 
@@ -817,9 +1083,9 @@ func (v *CodeGuideValidator) Validate(ctx context.Context, content []byte, confi
 	}
 
 	return ValidationResult{
-		Valid:     len(errors) == 0,
-		Errors:    errors,
-		Warnings:  warnings,
-		Score:     score,
+		Valid:    len(errors) == 0,
+		Errors:   errors,
+		Warnings: warnings,
+		Score:    score,
 	}
 }

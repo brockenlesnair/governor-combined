@@ -69,10 +69,10 @@ func TestValidatorRegistry_Builtins(t *testing.T) {
 	vr := NewValidatorRegistry()
 
 	expectedValidators := []string{
-		"madr", "openapi", "c4_context", "c4_container",
-		"runbook", "incident_playbook", "stride",
+		"madr", "openapi", "c4_context", "c4_container", "c4_component",
+		"runbook", "runbook_operational", "disaster_recovery", "incident_playbook", "stride",
 		"data_dictionary", "slo", "postmortem",
-		"changelog", "release_notes", "code_guide",
+		"changelog", "api_changelog", "migration_guide", "release_notes", "code_guide",
 	}
 
 	for _, name := range expectedValidators {
@@ -209,6 +209,128 @@ Rollback deployment
 	result := v.Validate(context.Background(), content, config)
 	if !result.Valid {
 		t.Errorf("valid runbook should pass, got errors: %v", result.Errors)
+	}
+}
+
+func TestNewValidators_Validate(t *testing.T) {
+	tests := []struct {
+		name      string
+		validator DocumentValidator
+		content   []byte
+		config    DocumentTypeConfig
+	}{
+		{
+			name:      "c4 component",
+			validator: NewC4ComponentValidator(),
+			content: []byte(`---
+title: "Component View"
+components: ["api", "worker"]
+---
+
+# Components
+
+This component diagram shows the service, its responsibilities, interface, and dependencies.
+`),
+			config: DocumentTypeConfig{Validator: "c4_component", RequiredFields: []string{"title", "components"}},
+		},
+		{
+			name:      "runbook operational",
+			validator: NewRunbookOperationalValidator(),
+			content: []byte(`---
+title: "Rotate Certificates"
+severity: SEV-3
+owner: "platform"
+---
+
+# Steps
+
+1. Check expiry
+2. Renew certificate
+
+## Monitoring
+
+Watch alerts and logs.
+
+## Verification
+
+Confirm the service is healthy.
+
+## Rollback
+
+Revert to the previous certificate if needed.
+`),
+			config: DocumentTypeConfig{Validator: "runbook_operational", RequiredFields: []string{"title", "owner", "severity"}},
+		},
+		{
+			name:      "disaster recovery",
+			validator: NewDisasterRecoveryValidator(),
+			content: []byte(`---
+title: "Primary Region Loss"
+owner: "platform"
+---
+
+# Recovery
+
+Backup data, restore services, and fail over to the secondary region.
+
+## RTO
+
+15 minutes.
+
+## RPO
+
+5 minutes.
+`),
+			config: DocumentTypeConfig{Validator: "disaster_recovery", RequiredFields: []string{"title", "owner"}},
+		},
+		{
+			name:      "api changelog",
+			validator: NewAPIChangelogValidator(),
+			content: []byte(`---
+title: "API Changes"
+versions: ["1.0.0"]
+---
+
+## [1.0.0] - 2026-08-11
+
+### Added
+
+- New endpoint.
+`),
+			config: DocumentTypeConfig{Validator: "api_changelog", RequiredFields: []string{"title", "versions"}},
+		},
+		{
+			name:      "migration guide",
+			validator: NewMigrationGuideValidator(),
+			content: []byte(`---
+title: "Upgrade to v2"
+from_version: "1.0.0"
+to_version: "2.0.0"
+---
+
+## Prerequisites
+
+Review breaking changes.
+
+## Upgrade Steps
+
+Follow the steps carefully.
+
+## Verification
+
+Confirm the system starts.
+`),
+			config: DocumentTypeConfig{Validator: "migration_guide", RequiredFields: []string{"title", "from_version", "to_version"}},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := tc.validator.Validate(context.Background(), tc.content, tc.config)
+			if !result.Valid {
+				t.Fatalf("expected %s validator to accept sample content: %v", tc.name, result.Errors)
+			}
+		})
 	}
 }
 
