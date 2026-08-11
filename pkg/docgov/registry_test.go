@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/brockenlesnair/governor-combined/pkg/staleness"
@@ -79,6 +80,37 @@ func TestValidatorRegistry_Builtins(t *testing.T) {
 		if _, ok := vr.Get(name); !ok {
 			t.Errorf("missing validator: %s", name)
 		}
+	}
+}
+
+func TestParseFrontmatter_AllowsLeadingWhitespaceAndBodyDelimiters(t *testing.T) {
+	content := []byte(`
+---
+title: "Example"
+status: accepted
+tags:
+  - one
+  - two
+---
+
+# Body
+
+This body includes a delimiter line.
+---
+That should stay in the body.
+`)
+
+	fm, body, err := ParseFrontmatter(content)
+	if err != nil {
+		t.Fatalf("ParseFrontmatter failed: %v", err)
+	}
+
+	if got, ok := getString(fm, "title"); !ok || got != "Example" {
+		t.Fatalf("expected title=Example, got %#v", fm["title"])
+	}
+
+	if got := strings.TrimSpace(string(body)); !strings.Contains(got, "That should stay in the body.") {
+		t.Fatalf("body lost content after frontmatter parsing: %q", got)
 	}
 }
 

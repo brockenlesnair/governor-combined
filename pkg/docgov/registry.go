@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -124,16 +125,16 @@ func (dr *DocumentRegistry) createDocument(relPath string, config DocumentTypeCo
 	validation := dr.validatorReg.Validate(context.Background(), content, config)
 
 	doc := &Document{
-		ID:          relPath,
-		Type:        config.Type,
-		Path:        relPath,
-		Title:       title,
-		Status:      DocumentStatusDraft, // Default, would be overridden by frontmatter
-		CreatedAt:   info.ModTime(),
-		UpdatedAt:   info.ModTime(),
-		Freshness:   freshness,
-		Validation:  validation,
-		Metadata:    map[string]string{"config_validator": config.Validator},
+		ID:         relPath,
+		Type:       config.Type,
+		Path:       relPath,
+		Title:      title,
+		Status:     DocumentStatusDraft, // Default, would be overridden by frontmatter
+		CreatedAt:  info.ModTime(),
+		UpdatedAt:  info.ModTime(),
+		Freshness:  freshness,
+		Validation: validation,
+		Metadata:   map[string]string{"config_validator": config.Validator},
 	}
 
 	// Try to get status from frontmatter
@@ -295,6 +296,174 @@ func (dr *DocumentRegistry) GetMissingRequiredTypes() []DocumentTypeConfig {
 	return missing
 }
 
+// GetRecommendedTypes returns optional document types that are worth adding based on repo signals.
+func (dr *DocumentRegistry) GetRecommendedTypes() []DocumentRecommendation {
+	dr.mu.RLock()
+	projectRoot := dr.projectRoot
+	typeConfigs := append([]DocumentTypeConfig(nil), dr.typeConfigs...)
+	present := make(map[DocumentType]int, len(dr.documents))
+	for _, doc := range dr.documents {
+		present[doc.Type]++
+	}
+	dr.mu.RUnlock()
+
+	if projectRoot == "" {
+		return nil
+	}
+
+	hasCodeFiles := hasAnyFileWithExtensions(projectRoot, ".go", ".js", ".ts", ".jsx", ".tsx", ".py", ".rs", ".java", ".rb", ".php", ".c", ".h", ".cpp", ".sh")
+	hasDataFiles := hasAnyGlob(projectRoot, "data/*.sql", "data/*.db", "data/*.sqlite*", "schemas/*.yml", "schemas/*.yaml", "migrations/*.sql", "migrations/*.yml", "migrations/*.yaml", "docs/data/*.md")
+	hasApiFiles := present[DocumentTypeAPISpec] > 0 || hasAnyGlob(projectRoot, "api/*.yaml", "api/*.yml", "api/*.json", "docs/api/*.yaml", "docs/api/*.yml", "docs/api/*.json", "specs/*.yaml", "specs/*.yml", "specs/*.json")
+	hasChangelog := present[DocumentTypeChangelog] > 0
+	hasArchOverview := present[DocumentTypeArchOverview] > 0
+	hasRunbooks := present[DocumentTypeRunbook] > 0 || present[DocumentTypeIncidentPlaybook] > 0
+
+	recommendations := make([]DocumentRecommendation, 0)
+	for _, config := range typeConfigs {
+		if config.Required || present[config.Type] > 0 {
+			continue
+		}
+
+		rec, ok := buildRecommendation(config, hasCodeFiles, hasDataFiles, hasApiFiles, hasChangelog, hasArchOverview, hasRunbooks)
+		if !ok {
+			continue
+		}
+		recommendations = append(recommendations, rec)
+	}
+
+	sort.SliceStable(recommendations, func(i, j int) bool {
+		if recommendations[i].Priority == recommendations[j].Priority {
+			return recommendations[i].Type < recommendations[j].Type
+		}
+		return recommendations[i].Priority > recommendations[j].Priority
+	})
+
+	return recommendations
+}
+
+func buildRecommendation(
+	config DocumentTypeConfig,
+	hasCodeFiles bool,
+	hasDataFiles bool,
+	hasApiFiles bool,
+	hasChangelog bool,
+	hasArchOverview bool,
+	hasRunbooks bool,
+) (DocumentRecommendation, bool) {
+	rec := DocumentRecommendation{
+		Type:              config.Type,
+		DisplayName:       config.DisplayName,
+		Description:       config.Description,
+		PathPatterns:      append([]string(nil), config.PathPatterns...),
+		Required:          config.Required,
+		Validator:         config.Validator,
+		TemplateAvailable: config.Template != "",
+	}
+
+	switch config.Type {
+	case DocumentTypeArchContainer:
+		if hasArchOverview {
+			rec.Priority = 95
+			rec.Reason = "The architecture overview already exists; a container diagram would make runtime boundaries and technology choices explicit."
+		}
+	case DocumentTypePostmortem:
+		if hasRunbooks {
+			rec.Priority = 90
+			rec.Reason = "Operational runbooks and incident playbooks exist; incidents should be captured as postmortems with action items."
+		}
+	case DocumentTypeDisasterRecovery:
+		if hasRunbooks {
+			rec.Priority = 88
+			rec.Reason = "Runbooks and incident procedures exist; disaster recovery steps should be documented before an outage forces the issue."
+		}
+	case DocumentTypeCodeGuide:
+		if hasCodeFiles {
+			rec.Priority = 85
+			rec.Reason = "Code is present in the repository; a documentation guide keeps comments, naming, and examples consistent."
+		}
+	case DocumentTypeAPIChangelog:
+		if hasApiFiles {
+			rec.Priority = 82
+			rec.Reason = "An API specification exists; document API changes separately so consumers can track breaking and non-breaking updates."
+		}
+	case DocumentTypeReleaseNotes:
+		if hasChangelog {
+			rec.Priority = 80
+			rec.Reason = "A changelog exists; release notes give a higher-level summary for users and stakeholders."
+		}
+	case DocumentTypeMigrationGuide:
+		if hasApiFiles || hasChangelog {
+			rec.Priority = 78
+			rec.Reason = "This project already tracks releases and APIs; a migration guide will reduce upgrade friction."
+		}
+	case DocumentTypeArchComponent:
+		if hasArchOverview || hasCodeFiles {
+			rec.Priority = 72
+			rec.Reason = "The system already has architecture-level documentation; component-level detail would make the design easier to navigate."
+		}
+	case DocumentTypeDataDictionary:
+		if hasDataFiles {
+			rec.Priority = 70
+			rec.Reason = "Data-related files are present; a data dictionary would document fields, tables, and relationships."
+		}
+	case DocumentTypeRunbookOperational:
+		if hasRunbooks {
+			rec.Priority = 68
+			rec.Reason = "Operational runbooks already exist; a dedicated operational runbook can capture recurring procedures separately."
+		}
+	default:
+		return DocumentRecommendation{}, false
+	}
+
+	if rec.Priority == 0 {
+		return DocumentRecommendation{}, false
+	}
+
+	return rec, true
+}
+
+func hasAnyGlob(projectRoot string, patterns ...string) bool {
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(filepath.Join(projectRoot, pattern))
+		if err != nil {
+			continue
+		}
+		if len(matches) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasAnyFileWithExtensions(projectRoot string, extensions ...string) bool {
+	extSet := make(map[string]struct{}, len(extensions))
+	for _, ext := range extensions {
+		extSet[strings.ToLower(ext)] = struct{}{}
+	}
+
+	found := false
+	_ = filepath.WalkDir(projectRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			base := filepath.Base(path)
+			if base == ".git" || base == "node_modules" || base == "vendor" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if _, ok := extSet[strings.ToLower(filepath.Ext(path))]; ok {
+			found = true
+			return filepath.SkipAll
+		}
+		return nil
+	})
+
+	return found
+}
+
 // GetStaleDocuments returns all documents that are stale.
 func (dr *DocumentRegistry) GetStaleDocuments() []*Document {
 	dr.mu.RLock()
@@ -419,10 +588,10 @@ func (dr *DocumentRegistry) GetStats() RegistryStats {
 	defer dr.mu.RUnlock()
 
 	stats := RegistryStats{
-		TotalDocuments: len(dr.documents),
-		ByType:         make(map[DocumentType]int),
-		ByStatus:       make(map[DocumentStatus]int),
-		ByFreshness:    make(map[FreshnessLevel]int),
+		TotalDocuments:  len(dr.documents),
+		ByType:          make(map[DocumentType]int),
+		ByStatus:        make(map[DocumentStatus]int),
+		ByFreshness:     make(map[FreshnessLevel]int),
 		RequiredMissing: len(dr.GetMissingRequiredTypes()),
 	}
 
@@ -441,10 +610,10 @@ func (dr *DocumentRegistry) GetStats() RegistryStats {
 
 // RegistryStats provides statistics about the document registry.
 type RegistryStats struct {
-	TotalDocuments    int                          `json:"total_documents"`
-	ByType            map[DocumentType]int         `json:"by_type"`
-	ByStatus          map[DocumentStatus]int       `json:"by_status"`
-	ByFreshness       map[FreshnessLevel]int       `json:"by_freshness"`
-	InvalidDocuments  int                          `json:"invalid_documents"`
-	RequiredMissing   int                          `json:"required_missing"`
+	TotalDocuments   int                    `json:"total_documents"`
+	ByType           map[DocumentType]int   `json:"by_type"`
+	ByStatus         map[DocumentStatus]int `json:"by_status"`
+	ByFreshness      map[FreshnessLevel]int `json:"by_freshness"`
+	InvalidDocuments int                    `json:"invalid_documents"`
+	RequiredMissing  int                    `json:"required_missing"`
 }

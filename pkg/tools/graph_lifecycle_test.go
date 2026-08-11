@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/brockenlesnair/governor-combined/pkg/callgraph"
 )
 
 // TestGraphLifecycle_EmptyProject tests graph lifecycle with empty project
@@ -130,6 +132,57 @@ func bar() {}
 
 	if len(g2.Nodes) != len(g1.Nodes) {
 		t.Logf("cached graph node count: %d vs %d", len(g2.Nodes), len(g1.Nodes))
+	}
+}
+
+// TestGraphLifecycle_RebuildsEmptyInMemoryGraph ensures an empty graph does not
+// get treated as a usable cache entry.
+func TestGraphLifecycle_RebuildsEmptyInMemoryGraph(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	tmpDir, err := os.MkdirTemp("", "gov-test-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp failed: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module example.com/gov-test\n\ngo 1.25\n"), 0644); err != nil {
+		t.Fatalf("WriteFile go.mod failed: %v", err)
+	}
+
+	goFile := filepath.Join(tmpDir, "main.go")
+	if err := os.WriteFile(goFile, []byte(`package main
+
+func main() {
+	foo()
+}
+
+func foo() {}
+`), 0644); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	cfg := DefaultToolsConfig()
+	cfg.ProjectRoot = tmpDir
+	cfg.GraphCachePath = filepath.Join(tmpDir, "graph.db")
+
+	gl, err := NewGraphLifecycle(cfg, logger)
+	if err != nil {
+		t.Fatalf("NewGraphLifecycle failed: %v", err)
+	}
+	defer gl.Close()
+
+	gl.mu.Lock()
+	gl.graph = callgraph.NewGraph()
+	gl.mu.Unlock()
+
+	g, err := gl.GetGraph(context.Background())
+	if err != nil {
+		t.Fatalf("GetGraph failed: %v", err)
+	}
+
+	if len(g.Nodes) == 0 {
+		t.Fatal("expected GetGraph to rebuild a non-empty graph")
 	}
 }
 
@@ -486,7 +539,6 @@ func TestGraphLifecycle_EmptyCache(t *testing.T) {
 		t.Log("empty graph (no Go files found)")
 	}
 }
-
 
 // TestGraphLifecycle_InvalidCache tests behavior with corrupted cache
 func TestGraphLifecycle_InvalidCache(t *testing.T) {

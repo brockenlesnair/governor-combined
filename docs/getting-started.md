@@ -41,6 +41,50 @@ Server starts on `:8080` with these endpoints:
 
 Reads JSON-RPC from stdin, writes responses to stdout.
 
+To make it available through `mcpmu` on your machine, register it as a local stdio server:
+
+```bash
+mcpmu add governor-combined --autostart --cwd /path/to/governor-combined -- ./governor --stdio --config governor.yaml
+```
+
+Governor exposes itself to MCP clients as `governor`.
+
+For a repeatable local setup, run:
+
+```bash
+./scripts/register-mcpmu.sh
+```
+
+If you want the same local server registered in Codex, run:
+
+```bash
+./scripts/register-codex-mcp.sh
+```
+
+To smoke-test the MCP handshake:
+
+```bash
+./scripts/test-mcp.sh
+```
+
+To verify the tool list:
+
+```bash
+./scripts/test-mcp-tools.sh
+```
+
+To verify activation from an empty project root:
+
+```bash
+./scripts/test-empty-project.sh
+```
+
+To exercise a real tool call:
+
+```bash
+./scripts/test-mcp-call.sh
+```
+
 ## CLI Flags
 
 | Flag | Default | Description |

@@ -1,0 +1,38 @@
+openapi: 3.0.3
+info:
+  title: Governor HTTP API
+  version: 2.0.0
+  description: HTTP endpoints exposed by Governor for health, readiness, tools, and metrics.
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Server is healthy
+  /ready:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: Server is ready
+  /tools:
+    get:
+      summary: List available MCP tools
+      responses:
+        "200":
+          description: Tool inventory
+  /mcp:
+    get:
+      summary: MCP WebSocket endpoint
+      responses:
+        "101":
+          description: WebSocket upgrade
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        "200":
+          description: Metrics payload

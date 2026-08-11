@@ -80,22 +80,39 @@ func (vr *ValidatorRegistry) Validate(ctx context.Context, content []byte, confi
 
 // Frontmatter parses YAML frontmatter from markdown content.
 func ParseFrontmatter(content []byte) (map[string]any, []byte, error) {
-	str := string(content)
-	if !strings.HasPrefix(str, "---") {
+	str := strings.TrimPrefix(string(content), "\ufeff")
+	lines := strings.Split(str, "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		start = i
+		break
+	}
+
+	if start == -1 || strings.TrimSpace(lines[start]) != "---" {
 		return nil, content, fmt.Errorf("no frontmatter found")
 	}
 
-	parts := strings.SplitN(str, "---", 3)
-	if len(parts) < 3 {
+	end := -1
+	for i := start + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			end = i
+			break
+		}
+	}
+	if end == -1 {
 		return nil, content, fmt.Errorf("invalid frontmatter format")
 	}
 
+	frontmatter := strings.Join(lines[start+1:end], "\n")
 	var fm map[string]any
-	if err := yaml.Unmarshal([]byte(parts[1]), &fm); err != nil {
+	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
 		return nil, content, fmt.Errorf("parse frontmatter: %w", err)
 	}
 
-	body := []byte(strings.TrimSpace(parts[2]))
+	body := []byte(strings.TrimSpace(strings.Join(lines[end+1:], "\n")))
 	return fm, body, nil
 }
 

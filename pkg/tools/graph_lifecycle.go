@@ -15,11 +15,11 @@ import (
 
 // GraphStats holds statistics about the call graph.
 type GraphStats struct {
-	Nodes        int       `json:"nodes"`
-	Edges        int       `json:"edges"`
-	LastBuilt    time.Time `json:"last_built"`
-	StaleFiles   int       `json:"stale_files"`
-	BuildDurationMs int64  `json:"build_duration_ms"`
+	Nodes           int       `json:"nodes"`
+	Edges           int       `json:"edges"`
+	LastBuilt       time.Time `json:"last_built"`
+	StaleFiles      int       `json:"stale_files"`
+	BuildDurationMs int64     `json:"build_duration_ms"`
 }
 
 // GraphLifecycle manages the call graph lifecycle: build, cache, rebuild.
@@ -72,9 +72,13 @@ func NewGraphLifecycle(cfg *ToolsConfig, logger *slog.Logger) (*GraphLifecycle, 
 	// Try to load cached graph on startup
 	if store != nil {
 		if g, err := gl.loadCachedGraph(); err == nil && g != nil {
-			gl.graph = g
-			gl.updateStatsFromGraph()
-			logger.Info("Loaded cached call graph", "nodes", gl.stats.Nodes, "edges", gl.stats.Edges)
+			if graphIsUsable(g) {
+				gl.graph = g
+				gl.updateStatsFromGraph()
+				logger.Info("Loaded cached call graph", "nodes", gl.stats.Nodes, "edges", gl.stats.Edges)
+			} else {
+				logger.Warn("Discarding empty cached call graph, will rebuild on first request", "nodes", g.NodeCount(), "edges", g.EdgeCount())
+			}
 		} else {
 			logger.Info("No cached graph found, will build on first request", "error", err)
 		}
@@ -192,7 +196,7 @@ func (gl *GraphLifecycle) GetGraph(ctx context.Context) (*callgraph.Graph, error
 	g := gl.graph
 	gl.mu.RUnlock()
 
-	if g != nil {
+	if graphIsUsable(g) {
 		return g, nil
 	}
 
@@ -251,6 +255,10 @@ func (gl *GraphLifecycle) updateStatsFromGraph() {
 		gl.stats.Nodes = len(gl.graph.Nodes)
 		gl.stats.Edges = len(gl.graph.Edges)
 	}
+}
+
+func graphIsUsable(g *callgraph.Graph) bool {
+	return g != nil && g.NodeCount() > 0
 }
 
 // Close closes the persist store if open.

@@ -23,7 +23,7 @@ func NewDocGovTools(registry *DocumentRegistry) *DocGovTools {
 // RegisterTools registers all document governance MCP tools.
 func (dt *DocGovTools) RegisterTools(reg *mcp.ToolRegistry) error {
 	tools := []struct {
-		def    mcp.ToolDefinition
+		def     mcp.ToolDefinition
 		handler mcp.ToolHandler
 	}{
 		{
@@ -105,7 +105,7 @@ func (dt *DocGovTools) RegisterTools(reg *mcp.ToolRegistry) error {
 				Name:        "suggest_document",
 				Description: "Suggest document types that should exist based on project analysis",
 				InputSchema: map[string]any{
-					"type": "object",
+					"type":       "object",
 					"properties": map[string]any{},
 				},
 			},
@@ -116,7 +116,7 @@ func (dt *DocGovTools) RegisterTools(reg *mcp.ToolRegistry) error {
 				Name:        "get_document_stats",
 				Description: "Get statistics about the document registry",
 				InputSchema: map[string]any{
-					"type": "object",
+					"type":       "object",
 					"properties": map[string]any{},
 				},
 			},
@@ -127,7 +127,7 @@ func (dt *DocGovTools) RegisterTools(reg *mcp.ToolRegistry) error {
 				Name:        "get_missing_required",
 				Description: "Get list of required document types that are missing",
 				InputSchema: map[string]any{
-					"type": "object",
+					"type":       "object",
 					"properties": map[string]any{},
 				},
 			},
@@ -180,15 +180,15 @@ func (dt *DocGovTools) handleListDocuments(ctx context.Context, args map[string]
 	result := make([]map[string]any, len(documents))
 	for i, doc := range documents {
 		result[i] = map[string]any{
-			"path":        doc.Path,
-			"type":        doc.Type.String(),
-			"title":       doc.Title,
-			"status":      doc.Status.String(),
-			"freshness":   doc.Freshness.Level.String(),
-			"age_days":    int(doc.Freshness.Age.Hours() / 24),
-			"valid":       doc.Validation.Valid,
-			"owner":       doc.Owner,
-			"updated_at":  doc.UpdatedAt.Format(time.RFC3339),
+			"path":       doc.Path,
+			"type":       doc.Type.String(),
+			"title":      doc.Title,
+			"status":     doc.Status.String(),
+			"freshness":  doc.Freshness.Level.String(),
+			"age_days":   int(doc.Freshness.Age.Hours() / 24),
+			"valid":      doc.Validation.Valid,
+			"owner":      doc.Owner,
+			"updated_at": doc.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -211,20 +211,20 @@ func (dt *DocGovTools) handleGetDocument(ctx context.Context, args map[string]an
 	}
 
 	return map[string]any{
-		"id":           doc.ID,
-		"path":         doc.Path,
-		"type":         doc.Type.String(),
-		"title":        doc.Title,
-		"status":       doc.Status.String(),
-		"owner":        doc.Owner,
-		"tags":         doc.Tags,
-		"created_at":   doc.CreatedAt.Format(time.RFC3339),
-		"updated_at":   doc.UpdatedAt.Format(time.RFC3339),
-		"approved_at":  doc.ApprovedAt,
+		"id":          doc.ID,
+		"path":        doc.Path,
+		"type":        doc.Type.String(),
+		"title":       doc.Title,
+		"status":      doc.Status.String(),
+		"owner":       doc.Owner,
+		"tags":        doc.Tags,
+		"created_at":  doc.CreatedAt.Format(time.RFC3339),
+		"updated_at":  doc.UpdatedAt.Format(time.RFC3339),
+		"approved_at": doc.ApprovedAt,
 		"freshness": map[string]any{
-			"level":      doc.Freshness.Level.String(),
-			"age_days":   int(doc.Freshness.Age.Hours() / 24),
-			"max_age_days": int(doc.Freshness.MaxAge.Hours() / 24),
+			"level":         doc.Freshness.Level.String(),
+			"age_days":      int(doc.Freshness.Age.Hours() / 24),
+			"max_age_days":  int(doc.Freshness.MaxAge.Hours() / 24),
 			"warn_age_days": int(doc.Freshness.WarnAge.Hours() / 24),
 			"last_modified": doc.Freshness.LastModified.Format(time.RFC3339),
 		},
@@ -253,14 +253,14 @@ func (dt *DocGovTools) handleValidateDocument(ctx context.Context, args map[stri
 	}
 
 	return map[string]any{
-		"path":        doc.Path,
-		"type":        doc.Type.String(),
-		"valid":       doc.Validation.Valid,
-		"score":       doc.Validation.Score,
-		"errors":      doc.Validation.Errors,
-		"warnings":    doc.Validation.Warnings,
-		"checked_at":  doc.Validation.CheckedAt.Format(time.RFC3339),
-		"validator":   doc.Validation.Validator,
+		"path":       doc.Path,
+		"type":       doc.Type.String(),
+		"valid":      doc.Validation.Valid,
+		"score":      doc.Validation.Score,
+		"errors":     doc.Validation.Errors,
+		"warnings":   doc.Validation.Warnings,
+		"checked_at": doc.Validation.CheckedAt.Format(time.RFC3339),
+		"validator":  doc.Validation.Validator,
 	}, nil
 }
 
@@ -275,11 +275,11 @@ func (dt *DocGovTools) handleCheckFreshness(ctx context.Context, args map[string
 		}
 
 		return map[string]any{
-			"path":       doc.Path,
-			"level":      doc.Freshness.Level.String(),
-			"age_days":   int(doc.Freshness.Age.Hours() / 24),
-			"max_age":    int(doc.Freshness.MaxAge.Hours() / 24),
-			"warn_age":   int(doc.Freshness.WarnAge.Hours() / 24),
+			"path":          doc.Path,
+			"level":         doc.Freshness.Level.String(),
+			"age_days":      int(doc.Freshness.Age.Hours() / 24),
+			"max_age":       int(doc.Freshness.MaxAge.Hours() / 24),
+			"warn_age":      int(doc.Freshness.WarnAge.Hours() / 24),
 			"last_modified": doc.Freshness.LastModified.Format(time.RFC3339),
 		}, nil
 	}
@@ -298,11 +298,11 @@ func (dt *DocGovTools) handleCheckFreshness(ctx context.Context, args map[string
 
 	return map[string]any{
 		"summary": map[string]any{
-			"total":    len(all),
-			"fresh":    freshCount,
-			"warning":  len(warning),
-			"stale":    len(stale),
-			"unknown":  len(all) - freshCount - len(warning) - len(stale),
+			"total":   len(all),
+			"fresh":   freshCount,
+			"warning": len(warning),
+			"stale":   len(stale),
+			"unknown": len(all) - freshCount - len(warning) - len(stale),
 		},
 		"stale_documents":   dt.documentsToSummary(stale),
 		"warning_documents": dt.documentsToSummary(warning),
@@ -313,36 +313,57 @@ func (dt *DocGovTools) documentsToSummary(docs []*Document) []map[string]any {
 	result := make([]map[string]any, len(docs))
 	for i, doc := range docs {
 		result[i] = map[string]any{
-			"path":        doc.Path,
-			"title":       doc.Title,
-			"type":        doc.Type.String(),
-			"age_days":    int(doc.Freshness.Age.Hours() / 24),
-			"level":       doc.Freshness.Level.String(),
+			"path":     doc.Path,
+			"title":    doc.Title,
+			"type":     doc.Type.String(),
+			"age_days": int(doc.Freshness.Age.Hours() / 24),
+			"level":    doc.Freshness.Level.String(),
 		}
 	}
 	return result
 }
 
-// handleSuggestDocument suggests missing required documents.
+// handleSuggestDocument suggests required and opinionated optional documents.
 func (dt *DocGovTools) handleSuggestDocument(ctx context.Context, args map[string]any) (map[string]any, error) {
 	missing := dt.registry.GetMissingRequiredTypes()
+	recommended := dt.registry.GetRecommendedTypes()
 
-	suggestions := make([]map[string]any, len(missing))
+	missingRequired := make([]map[string]any, len(missing))
 	for i, config := range missing {
-		suggestions[i] = map[string]any{
-			"type":           config.Type.String(),
-			"display_name":   config.DisplayName,
-			"description":    config.Description,
-			"required":       config.Required,
-			"path_patterns":  config.PathPatterns,
+		missingRequired[i] = map[string]any{
+			"type":               config.Type.String(),
+			"display_name":       config.DisplayName,
+			"description":        config.Description,
+			"required":           config.Required,
+			"path_patterns":      config.PathPatterns,
 			"template_available": config.Template != "",
-			"validator":      config.Validator,
+			"validator":          config.Validator,
+			"reason":             "required by governance policy",
+			"priority":           100,
+		}
+	}
+
+	recommendedDocs := make([]map[string]any, len(recommended))
+	for i, rec := range recommended {
+		recommendedDocs[i] = map[string]any{
+			"type":               rec.Type.String(),
+			"display_name":       rec.DisplayName,
+			"description":        rec.Description,
+			"required":           rec.Required,
+			"path_patterns":      rec.PathPatterns,
+			"template_available": rec.TemplateAvailable,
+			"validator":          rec.Validator,
+			"reason":             rec.Reason,
+			"priority":           rec.Priority,
 		}
 	}
 
 	return map[string]any{
-		"missing_required": suggestions,
-		"count":            len(suggestions),
+		"missing_required":  missingRequired,
+		"recommended":       recommendedDocs,
+		"required_count":    len(missingRequired),
+		"recommended_count": len(recommendedDocs),
+		"count":             len(missingRequired) + len(recommendedDocs),
 	}, nil
 }
 
@@ -366,12 +387,12 @@ func (dt *DocGovTools) handleGetStats(ctx context.Context, args map[string]any) 
 	}
 
 	return map[string]any{
-		"total_documents":     stats.TotalDocuments,
-		"by_type":             byType,
-		"by_status":           byStatus,
-		"by_freshness":        byFreshness,
-		"invalid_documents":   stats.InvalidDocuments,
-		"required_missing":    stats.RequiredMissing,
+		"total_documents":   stats.TotalDocuments,
+		"by_type":           byType,
+		"by_status":         byStatus,
+		"by_freshness":      byFreshness,
+		"invalid_documents": stats.InvalidDocuments,
+		"required_missing":  stats.RequiredMissing,
 	}, nil
 }
 
@@ -382,13 +403,13 @@ func (dt *DocGovTools) handleGetMissingRequired(ctx context.Context, args map[st
 	result := make([]map[string]any, len(missing))
 	for i, config := range missing {
 		result[i] = map[string]any{
-			"type":           config.Type.String(),
-			"display_name":   config.DisplayName,
-			"description":    config.Description,
-			"path_patterns":  config.PathPatterns,
-			"validator":      config.Validator,
-			"max_age_days":   int(config.MaxAge.Hours() / 24),
-			"warn_age_days":  int(config.WarnAge.Hours() / 24),
+			"type":               config.Type.String(),
+			"display_name":       config.DisplayName,
+			"description":        config.Description,
+			"path_patterns":      config.PathPatterns,
+			"validator":          config.Validator,
+			"max_age_days":       int(config.MaxAge.Hours() / 24),
+			"warn_age_days":      int(config.WarnAge.Hours() / 24),
 			"template_available": config.Template != "",
 		}
 	}
