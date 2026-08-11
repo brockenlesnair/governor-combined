@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -104,6 +105,7 @@ func init() {
 func main() {
 	configPath := flag.String("config", "governor.yaml", "path to governor config file")
 	stdioMode := flag.Bool("stdio", false, "run MCP server over stdio")
+	fullModeFlag := flag.Bool("full-mode", false, "enable full background maintenance mode")
 	port := flag.Int("port", 0, "HTTP server port (overrides config)")
 	projectRoot := flag.String("project-root", "", "project root directory (overrides config)")
 	flag.Parse()
@@ -121,6 +123,10 @@ func main() {
 	if *projectRoot != "" {
 		cfg.Features.DocGov.ProjectRoot = *projectRoot
 	}
+	if *fullModeFlag {
+		cfg.Features.Mode = "full"
+	}
+	fullMode := cfg.Features.FullModeEnabled()
 
 	// Print banner and enabled features
 	fmt.Fprint(os.Stderr, banner)
@@ -189,9 +195,10 @@ func main() {
 	var docRegistry *docgov.DocumentRegistry
 	var docTools *docgov.DocGovTools
 
-	// Start graph rebuild loop (will build on first request if needed)
 	ctx := context.Background()
-	gl.StartRebuildLoop(ctx)
+	if fullMode {
+		gl.StartRebuildLoop(ctx)
+	}
 
 	// Initialize document governance
 	if cfg.Features.DocGov.Enabled {
@@ -223,15 +230,15 @@ func main() {
 			log.Fatalf("Failed to register docgov tools: %v", err)
 		}
 
-		// Start docgov watcher if enabled
-		if cfg.Features.DocGov.EnableWatcher {
+		// Start docgov watcher only in full mode.
+		if fullMode {
 			interval, _ := time.ParseDuration(cfg.Features.DocGov.WatcherInterval)
 			if interval == 0 {
 				interval = 30 * time.Second
 			}
 			watcherCfg := watcher.Config{
-				Paths:        []string{projectRoot},
-				PollInterval: interval,
+				Paths:           []string{projectRoot},
+				PollInterval:    interval,
 				IncludePatterns: []string{"*.md", "*.adoc", "*.txt"},
 				ExcludePatterns: []string{".git/*", "vendor/*", "node_modules/*"},
 			}
@@ -263,54 +270,58 @@ func main() {
 		logger.Warn("Governor start failed (non-fatal)", "err", err)
 	}
 
-	// Start file watcher
-	watcherCfg := watcher.Config{
-		Paths:        []string{toolsCfg.ProjectRoot},
-		PollInterval: 2 * time.Second,
-	}
-	w := watcher.NewWatcher(watcherCfg)
-	w.Start(ctx)
-	defer w.Stop()
+	// Start file watcher only in full mode.
+	if fullMode {
+		watcherCfg := watcher.Config{
+			Paths:        []string{toolsCfg.ProjectRoot},
+			PollInterval: 2 * time.Second,
+		}
+		w := watcher.NewWatcher(watcherCfg)
+		w.Start(ctx)
+		defer w.Stop()
 
-	events := w.Subscribe()
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case evt := <-events:
-				watcherEvents.WithLabelValues(string(evt.EventType)).Inc()
-				if evt.EventType == watcher.EventModified || evt.EventType == watcher.EventCreated || evt.EventType == watcher.EventDeleted {
-					gl.RebuildGraphAsync(ctx)
+		events := w.Subscribe()
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case evt := <-events:
+					watcherEvents.WithLabelValues(string(evt.EventType)).Inc()
+					if evt.EventType == watcher.EventModified || evt.EventType == watcher.EventCreated || evt.EventType == watcher.EventDeleted {
+						gl.RebuildGraphAsync(ctx)
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	// Set build info
 	buildInfo.WithLabelValues("v2.0.0").Set(1)
 
 	// Start server
 	if *stdioMode {
-		runStdioServer(gw, gl)
+		runStdioServer(gw, gl, fullMode)
 	} else {
 		runHTTPServer(gw, cfg, gl)
 	}
 }
 
-func runStdioServer(gw *gateway.Gateway, gl *tools.GraphLifecycle) {
+func runStdioServer(gw *gateway.Gateway, gl *tools.GraphLifecycle, fullMode bool) {
 	fmt.Fprintln(os.Stderr, "Starting MCP server over stdio...")
 
-	// Build graph in background
-	go func() {
-		ctx := context.Background()
-		g, err := gl.BuildGraph(ctx)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Initial graph build failed: %v\n", err)
-		} else {
-			fmt.Fprintf(os.Stderr, "Graph built: %d nodes, %d edges\n", len(g.Nodes), len(g.Edges))
-		}
-	}()
+	// Build graph in the background only in full mode.
+	if fullMode {
+		go func() {
+			ctx := context.Background()
+			g, err := gl.BuildGraph(ctx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Initial graph build failed: %v\n", err)
+			} else {
+				fmt.Fprintf(os.Stderr, "Graph built: %d nodes, %d edges\n", len(g.Nodes), len(g.Edges))
+			}
+		}()
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	encoder := json.NewEncoder(os.Stdout)
@@ -540,6 +551,7 @@ func parsePort(listen string) int {
 
 func printEnabledFeaturesTo(w io.Writer, cfg *config.GovernorConfig) {
 	fmt.Fprintln(w, "Enabled features:")
+	fmt.Fprintf(w, "  - mode: %s\n", modeOrDefault(cfg.Features.Mode))
 
 	features := []struct {
 		name    string
@@ -572,4 +584,11 @@ func printEnabledFeaturesTo(w io.Writer, cfg *config.GovernorConfig) {
 		fmt.Fprintf(w, "  %s %s\n", status, f.name)
 	}
 	fmt.Fprintln(w)
+}
+
+func modeOrDefault(mode string) string {
+	if strings.EqualFold(strings.TrimSpace(mode), "full") {
+		return "full"
+	}
+	return "light"
 }

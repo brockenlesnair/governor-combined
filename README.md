@@ -22,7 +22,7 @@ Governor is an MCP (Model Context Protocol) server that enforces code quality, s
 | **Document Governance** | Validate documentation against templates and schemas |
 | **Hangar Scorecard** | Fleet-wide compliance scorecard |
 | **Repo Butler** | Repository health tier assessment |
-| **File Watching** | Auto-rebuild call graph on file changes |
+| **File Watching** | Optional auto-rebuild of the call graph on file changes (full mode) |
 | **Prometheus Metrics** | Built-in observability with `/metrics` endpoint |
 
 ## MCP Tools (15)
@@ -145,15 +145,19 @@ To exercise a real tool call:
 |------|---------|-------------|
 | `--config` | `governor.yaml` | Path to config file |
 | `--stdio` | `false` | Run MCP server over stdio |
+| `--full-mode` | `false` | Enable live watchers and periodic graph rebuilds |
 | `--port` | `0` | HTTP server port (overrides config) |
 | `--project-root` | `""` | Project root directory (overrides config) |
 
 ## Configuration
 
+Governor runs in `light` mode by default to avoid background rebuild churn. Set `features.mode: full` or pass `--full-mode` when you need live file watchers and periodic graph rebuilds.
+
 Governor is configured via `governor.yaml`:
 
 ```yaml
 features:
+  mode: light
   search:
     enabled: true
     max_results: 50

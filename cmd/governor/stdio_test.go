@@ -195,7 +195,7 @@ func TestStdioServer_UnknownMethod(t *testing.T) {
 
 	// Test unknown method - should return error
 	params := map[string]any{
-		"tool": "unknown_tool",
+		"tool":      "unknown_tool",
 		"arguments": map[string]any{},
 	}
 	_, err = handleToolCall(context.Background(), gw, mustMarshalRaw(params))

@@ -1,4 +1,5 @@
 features:
+  mode: light
   search:
     enabled: true
     max_results: 50

@@ -13,6 +13,9 @@ func TestDefaultConfigReturnsNonNilWithAllFeaturesEnabled(t *testing.T) {
 	}
 
 	f := cfg.Features
+	if f.Mode != "light" {
+		t.Errorf("features.mode = %q, want light", f.Mode)
+	}
 
 	tests := []struct {
 		name    string
@@ -54,6 +57,7 @@ func TestDefaultConfigReturnsNonNilWithAllFeaturesEnabled(t *testing.T) {
 func TestLoadConfigFromValidYAML(t *testing.T) {
 	yaml := `
 features:
+  mode: full
   search:
     enabled: false
     max_results: 10
@@ -96,6 +100,9 @@ features:
 	}
 
 	// Verify overridden values
+	if cfg.Features.Mode != "full" {
+		t.Errorf("features.mode = %q, want full", cfg.Features.Mode)
+	}
 	if cfg.Features.Search.Enabled {
 		t.Error("search should be disabled")
 	}
@@ -145,6 +152,9 @@ features:
 	// Overridden
 	if cfg.Features.Search.Enabled {
 		t.Error("search.enabled should be false")
+	}
+	if cfg.Features.Mode != "light" {
+		t.Errorf("features.mode = %q, want light (default)", cfg.Features.Mode)
 	}
 	// Not overridden — should use defaults
 	if !cfg.Features.Untested.Enabled {

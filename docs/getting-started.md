@@ -2,6 +2,8 @@
 
 Governor is an MCP (Model Context Protocol) server that enforces code quality, security, and documentation standards across your codebase. It exposes 15 tools that AI agents can call via the MCP protocol.
 
+By default it runs in `light` mode to keep background CPU use down; use `--full-mode` when you need live watchers and periodic graph rebuilds.
+
 ## Prerequisites
 
 - Go 1.25+
@@ -91,15 +93,19 @@ To exercise a real tool call:
 |------|---------|-------------|
 | `--config` | `governor.yaml` | Path to config file |
 | `--stdio` | `false` | Run MCP server over stdio |
+| `--full-mode` | `false` | Enable live watchers and periodic graph rebuilds |
 | `--port` | `0` | HTTP server port (overrides config) |
 | `--project-root` | `""` | Project root directory (overrides config) |
 
 ## Configuration
 
+Governor runs in `light` mode by default to keep background CPU use down. Set `features.mode: full` or pass `--full-mode` when you want live watchers and periodic graph rebuilds.
+
 Governor is configured via `governor.yaml`. Key sections:
 
 ```yaml
 features:
+  mode: light
   safety:
     enabled: true
     audit_path: "./data/audit.log"
